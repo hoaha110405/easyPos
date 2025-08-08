@@ -1,31 +1,47 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from 'passport-local'
 import { PrismaClient } from "@prisma/client/extension";
-import type { Prisma } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 passport.use(
   new LocalStrategy(
     {
-      usernameField: 'username',
+      usernameField: 'email',
       passwordField: 'password'
     },
-    (username, password, done) => {
+    async (email, password, done) => {
       try{
-        console.log('🔍 Đang tìm user với username:', username)
+        console.log('🔍 Đang tìm user với email:', email)
+        const user = await prisma.user.findUnique({
+          where: email
+        })
 
+        if(!user) {
+          console.log('❌ Không tìm thấy user');
+          return done(null, false, { message: 'Email không tồn tại' });
+        }
       }
       catch(err) {
-
+        console.error('🚨 Lỗi trong LocalStrategy:', err);
+        return done(err);
       }
-      // Implement your user lookup and password verification here
-      // Example:
-      // User.findOne({ email }, (err, user) => {
-      //   if (err) return done(err);
-      //   if (!user) return done(null, false, { message: 'Incorrect email.' });
-      //   if (!user.verifyPassword(password)) return done(null, false, { message: 'Incorrect password.' });
-      //   return done(null, user);
-      // });
       return done(null, false); // Placeholder implementation
     }
   )
 )
+
+passport.serializeUser((user: any, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: Number(id) } });
+    done(null, user);
+  } catch (err) {
+    done(err);
+  }
+});
+
+export default passport;
